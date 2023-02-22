@@ -1,0 +1,232 @@
+---
+title: "ps05rmarkdown"
+author: "Sarah Sung"
+date: "2023-02-18"
+output: html_document
+---
+
+1. Load and check data (5pt)
+```{r, message=FALSE}
+library(tidyverse)
+gapminder <- read_delim("gapminder.csv.bz2")
+```
+
+```{r}
+dim(gapminder)
+
+gapminder %>% 
+  sample_n(5)
+```
+2. Descriptive statistics (15pt)
+```{r}
+gapminder %>% 
+  summarize(n3 = n_distinct(iso3), 
+            n2 = n_distinct(iso2), 
+            n = n_distinct(name))
+
+iso2s <- gapminder %>% 
+  group_by(iso2) %>% 
+  summarize(iso2_num = n_distinct(name)) %>% 
+  arrange(desc(iso2_num))
+iso2s
+
+more_iso2s <- iso2s[iso2s$iso2_num > 1,]
+more_iso2s
+
+iso3s <- gapminder %>% 
+  group_by(iso3) %>% 
+  summarize(iso3_num = n_distinct(name)) %>% 
+  arrange(desc(iso3_num))
+iso3s
+
+more_iso3s <- iso3s[iso3s$iso3_num > 1,]
+more_iso3s
+
+min_year <- min(gapminder$time, na.rm = TRUE)
+min_year
+
+max_year <- max(gapminder$time, na.rm = TRUE)
+max_year
+```
+
+3. CO2 emissions (30pt)
+```{r}
+missing <- gapminder %>% 
+  group_by(time) %>% 
+  summarize(num = sum(is.na(co2))) %>% 
+  arrange(desc(num))
+missing
+
+missing_co2pc <- gapminder %>% 
+  group_by(time) %>% 
+  summarize(num = sum(is.na(co2_PC))) %>% 
+  arrange(desc(num))
+missing_co2pc
+
+## 2017, 2018, and 2019 have the most missing data
+```
+```{r message=FALSE, warning=FALSE}
+countries <- c("United States of America", 
+               "China", 
+               "India",
+               "Myanmar",
+               "japan",
+               "Israel"
+               )
+data <- gapminder %>% 
+  filter(name%in%countries) %>% 
+  select(name, time, co2)
+ggplot(data, aes(x=co2, y=time, col=factor(name))) +
+  geom_line() +
+  labs(x = "Co2 emissions", y = "year", col = "country")
+## I can see that each year, China is growing in its co2 emission. Myanmar is barely making co2 emission. Though the US is emitting co2, it is within a range. 
+```
+```{r message=FALSE, warning=FALSE}
+data <- gapminder %>% 
+  filter(name%in%countries) %>% 
+  select(name, time, co2_PC)
+ggplot(data, aes(x=co2_PC, y=time, col=factor(name))) +
+  geom_line() +
+  labs(x = "Co2 emissions per capita", y = "year", col = "country")
+## Each year, a person in the United States emits more co2 than any other person in the other countries.
+```
+```{r}
+gapminder %>%
+  group_by(region, time) %>%
+  summarize(num = mean(co2_PC, na.rm = TRUE)) %>% 
+  arrange(rank(desc(num)))
+## I see that America is in the top for co2 emission per capita
+```
+
+```{r message=FALSE, warning=FALSE}
+avgco2pc <- gapminder %>% 
+  filter(!is.na(co2_PC), !is.na(region)) %>% 
+  group_by(time, region) %>% 
+  summarize(num = mean(co2_PC)) %>% 
+  filter(time%in%c(1960,2016))
+avgco2pc
+
+ggplot(avgco2pc, aes(x = region, y = num, fill = factor(time))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "continent", y = "average co2 emissions per capita")
+
+```
+```{message = FALSE, warning = FALSE}
+top_three <- gapminder %>% 
+  group_by(region) %>% 
+  filter(time == "2019") %>% 
+  arrange(desc(co2_PC)) %>% 
+  group_by(name) %>% 
+  head(3)
+top_three
+
+bottom_three <- gapminder %>% 
+  group_by(name) %>% 
+  filter(time == "2019") %>% 
+  arrange(co2_PC) %>% 
+  head(3)
+bottom_three
+
+## I tried my best on this but I couldn't work it through :(
+
+```
+
+4. GDP per capita (50pt)
+```{r}
+data_1960 <- gapminder %>% 
+  group_by(name, totalPopulation, region) %>% 
+  filter(time == "1960") %>% 
+  summarize(avg_le = mean(lifeExpectancy, na.rm = TRUE),
+            avg_gdp = mean(GDP_PC, na.rm = TRUE)) %>% 
+  filter(!is.na(avg_le), !is.na(avg_gdp), !is.na(name))
+data_1960
+
+ggplot(data_1960, aes(x = avg_gdp, y = avg_le, size = totalPopulation, color = region)) +
+  geom_point(alpha = 0.7) +
+  scale_color_discrete(name = "continent")+
+  scale_size(range = c(1,10), breaks = c(1e6,1e7,1e8,1e9),
+             labels = c("1M", "10M", "100M", "1B"))+
+  labs(x = "GDP per capita",
+       y = "Life expectancy in years",
+       title = "GDP per capita versus Life Expectancy by Country (1960)") +
+  theme_bw()
+## I see that in 1960, richer countries in Europe had higher life expectancy than those in poorer countries in Africa.
+
+```
+```{r}
+data_2019 <- gapminder %>% 
+  group_by(name, totalPopulation, region) %>% 
+  filter(time == "2019") %>% 
+  summarize(avg_le = mean(lifeExpectancy, na.rm = TRUE),
+            avg_gdp = mean(GDP_PC, na.rm = TRUE)) %>% 
+  filter(!is.na(avg_le), !is.na(avg_gdp), !is.na(name))
+data_2019
+
+ggplot(data_2019, aes(x = avg_gdp, y = avg_le, size = totalPopulation, color = region)) +
+  geom_point(alpha = 0.7) +
+  scale_color_discrete(name = "continent")+
+  scale_size(range = c(1,10), breaks = c(1e6,1e7,1e8,1e9),
+             labels = c("1M", "10M", "100M", "1B"))+
+  labs(x = "GDP per capita",
+       y = "Life expectancy in years",
+       title = "GDP per capita versus Life Expectancy by Country (2019)") +
+  theme_bw()
+## 4.3 When looking at these two graphs, I see that much has not changed in the last 60 years. Europe is still at the top area of the graph curving. Africa is still at the bottom left of the graph, like 60 years ago. There are some improvement though as we see that Africa's life expectancy is getting a bit higher despite GDP not improving.
+```
+
+
+```{r message = FALSE, warning = FALSE}
+gapminder %>% 
+  group_by(time, region) %>% 
+  filter(time%in%c(1960, 2019)) %>% 
+  summarize(num = mean(lifeExpectancy, na.rm = TRUE))
+## The results match with what I see on the figures
+```
+```{r}
+le_growth <- gapminder %>% 
+  group_by(region) %>% 
+  filter(time%in%c(1960, 2019)) %>% 
+  mutate(growth = last(lifeExpectancy) - first(lifeExpectancy)) %>% 
+  summarize(avg_le_growth = mean(growth)) %>% 
+  arrange(avg_le_growth)
+le_growth
+## I see that Africa had the highest growth in life expectancy. Europe had the least average growth in life expectancy. 
+```
+```{r message = FALSE, warning = FALSE}
+data3 <- gapminder %>% 
+  group_by(name) %>% 
+  filter(time%in%c(1960,2019)) %>% 
+  select(name, GDP_PC, time)
+
+ggplot(data3, aes(x = GDP_PC, fill = factor(name))) +
+  geom_histogram(alpha = 0.5, position = "identity", bins = 30) +
+  labs(title = "Distribution of GDP per capita in 1960 and 2019",
+       x = "GDP per capita",
+       y = "frequency") +
+  theme_bw()
+## unfortunately, I could not finish this
+
+```
+```{r}
+le_1960 <- gapminder %>% 
+  filter(time == 1960, !is.na(name)) %>% 
+  mutate(ranking = rank(-lifeExpectancy)) %>% 
+  filter(name == "United States of America") %>% 
+  select(name, time, ranking)
+le_1960
+
+le_2019 <- gapminder %>% 
+  filter(time == 2019, !is.na(name)) %>% 
+  mutate(ranking = rank(-lifeExpectancy)) %>% 
+  filter(name == "United States of America") %>% 
+  select(name, time, ranking)
+le_2019
+```
+```{r message=FALSE, warning=FALSE}
+## I really tried on 4.8 but I had no idea how to approach it </3
+## I spent over 72 hours on this PS :(.)
+```
+
+
+
+
